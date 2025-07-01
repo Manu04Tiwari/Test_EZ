@@ -1,0 +1,57 @@
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import jwt, JWTError
+from passlib.context import CryptContext
+from sqlalchemy.orm import Session
+from .database import SessionLocal
+from .models import User
+from .config import JWT_SECRET, JWT_ALGORITHM
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+def hash_password(password: str):
+    return pwd_context.hash(password)
+
+def verify_password(password, hashed):
+    return pwd_context.verify(password, hashed)
+
+def create_access_token(data: dict, expires_delta=None):
+    to_encode = data.copy()
+    import datetime
+    if expires_delta:
+        expire = datetime.datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.datetime.utcnow() + datetime.timedelta(hours=8)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def decode_token(token: str):
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
+        )
+
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    payload = decode_token(token)
+    user = db.query(User).filter(User.email == payload["email"]).first()
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
+
+def require_role(role: str):
+    def decorator(user: User = Depends(get_current_user)):
+        if user.role != role:
+            raise HTTPException(status_code=403, detail="Not authorized")
+        return user
+    return decorator
