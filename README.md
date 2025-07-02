@@ -22,8 +22,8 @@ A FastAPI-based backend for secure file sharing, featuring:
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/yourrepo.git
-cd yourrepo
+git clone https://github.com/Manu04Tiwari/Test_EZ.git
+cd secure_file_sharing
 ```
 
 ### 2. Install dependencies
@@ -95,7 +95,7 @@ secure_file_sharing/
 
 ## License
 
-MIT License
+MIT License by Manu Tiwari
 
 ---
 
