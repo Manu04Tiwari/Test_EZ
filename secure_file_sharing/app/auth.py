@@ -2,20 +2,12 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from passlib.context import CryptContext
-from sqlalchemy.orm import Session
-from .database import SessionLocal
-from .models import User
+from .database import db
+from .schema import UserInDB
 from .config import JWT_SECRET, JWT_ALGORITHM
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 def hash_password(password: str):
     return pwd_context.hash(password)
@@ -24,8 +16,8 @@ def verify_password(password, hashed):
     return pwd_context.verify(password, hashed)
 
 def create_access_token(data: dict, expires_delta=None):
-    to_encode = data.copy()
     import datetime
+    to_encode = data.copy()
     if expires_delta:
         expire = datetime.datetime.utcnow() + expires_delta
     else:
@@ -42,16 +34,17 @@ def decode_token(token: str):
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
         )
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def get_current_user(token: str = Depends(oauth2_scheme)):
     payload = decode_token(token)
-    user = db.query(User).filter(User.email == payload["email"]).first()
-    if user is None:
+    user = await db["users"].find_one({"email": payload["email"]})
+    if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    user["id"] = str(user["_id"])
     return user
 
 def require_role(role: str):
-    def decorator(user: User = Depends(get_current_user)):
-        if user.role != role:
+    async def decorator(user: dict = Depends(get_current_user)):
+        if user["role"] != role:
             raise HTTPException(status_code=403, detail="Not authorized")
         return user
     return decorator

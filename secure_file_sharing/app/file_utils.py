@@ -1,5 +1,6 @@
 import os
 from fastapi import UploadFile, HTTPException
+import aiofiles
 
 ALLOWED_EXTENSIONS = {"pptx", "xlsx", "docx"}
 UPLOAD_DIR = "uploads"
@@ -12,7 +13,7 @@ async def save_file(file: UploadFile):
         raise HTTPException(status_code=400, detail="Invalid file type")
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     file_path = os.path.join(UPLOAD_DIR, file.filename)
-    with open(file_path, "wb") as out_file:
+    async with aiofiles.open(file_path, "wb") as out_file:
         content = await file.read()
-        out_file.write(content)
+        await out_file.write(content)
     return file_path

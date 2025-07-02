@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException, Depends
-from ..schemas import UserCreate, UserInDB
+from fastapi import APIRouter, HTTPException
+from ..schema import UserCreate, UserInDB
 from ..database import db
+from ..auth import hash_password
 
 router = APIRouter()
 
@@ -12,6 +13,7 @@ async def signup(user: UserCreate):
     user_dict = user.dict()
     user_dict["role"] = "client"
     user_dict["is_verified"] = False
+    user_dict["password"] = hash_password(user_dict["password"])
     result = await db["users"].insert_one(user_dict)
     user_dict["id"] = str(result.inserted_id)
     return user_dict
